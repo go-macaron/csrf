@@ -1,4 +1,4 @@
-i18n
+csrf
 ====
 
 Middleware csrf generates and validates csrf tokens for [Macaron](https://github.com/Unknwon/macaron).
@@ -32,7 +32,7 @@ func main() {
         // Custom error response.
         ErrorFunc: func(w http.ResponseWriter) {
             http.Error(w, "CSRF token validation failed", http.StatusBadRequest)
-        }
+        },
     }))
     m.Use(macaron.Renderer(macaron.RenderOptions{}))
 
