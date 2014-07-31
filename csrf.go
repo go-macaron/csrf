@@ -17,12 +17,8 @@
 package csrf
 
 import (
-	"fmt"
 	"net/http"
-	"regexp"
 	"strconv"
-	"strings"
-	"time"
 
 	"github.com/Unknwon/macaron"
 	"github.com/macaron-contrib/session"
@@ -114,85 +110,79 @@ type Options struct {
 	ErrorFunc func(w http.ResponseWriter)
 }
 
-const domainReg = `/^\.?[a-z\d]+(?:(?:[a-z\d]*)|(?:[a-z\d\-]*[a-z\d]))(?:\.[a-z\d]+(?:(?:[a-z\d]*)|(?:[a-z\d\-]*[a-z\d])))*$/`
+func prepareOptions(options []Options) Options {
+	var opt Options
+	if len(options) > 0 {
+		opt = options[0]
+	}
+
+	// Defaults
+	if len(opt.Header) == 0 {
+		opt.Header = "X-CSRFToken"
+	}
+	if len(opt.Form) == 0 {
+		opt.Form = "_csrf"
+	}
+	if len(opt.Cookie) == 0 {
+		opt.Cookie = "_csrf"
+	}
+	if len(opt.SessionKey) == 0 {
+		opt.SessionKey = "uid"
+	}
+	if opt.ErrorFunc == nil {
+		opt.ErrorFunc = func(w http.ResponseWriter) {
+			http.Error(w, "Invalid csrf token.", http.StatusBadRequest)
+		}
+	}
+
+	return opt
+}
 
 // Generate maps CSRF to each request. If this request is a Get request, it will generate a new token.
 // Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
-func Generate(opts *Options) macaron.Handler {
+func Generate(options ...Options) macaron.Handler {
+	opt := prepareOptions(options)
 	return func(ctx *macaron.Context, sess session.Store) {
-		if opts.Header == "" {
-			opts.Header = "X-CSRFToken"
-		}
-		if opts.Form == "" {
-			opts.Form = "_csrf"
-		}
-		if opts.Cookie == "" {
-			opts.Cookie = "_csrf"
-		}
-		if opts.ErrorFunc == nil {
-			opts.ErrorFunc = func(w http.ResponseWriter) {
-				http.Error(w, "Invalid csrf token.", http.StatusBadRequest)
-			}
-		}
-
 		x := &csrf{
-			Secret:    opts.Secret,
-			Header:    opts.Header,
-			Form:      opts.Form,
-			Cookie:    opts.Cookie,
-			ErrorFunc: opts.ErrorFunc,
+			Secret:    opt.Secret,
+			Header:    opt.Header,
+			Form:      opt.Form,
+			Cookie:    opt.Cookie,
+			ErrorFunc: opt.ErrorFunc,
 		}
 		ctx.MapTo(x, (*CSRF)(nil))
 
-		uid := sess.Get(opts.SessionKey)
+		uid := sess.Get(opt.SessionKey)
 		if uid == nil {
-			return
-		}
-		switch uid.(type) {
-		case string:
-			x.ID = uid.(string)
-		case int64:
-			x.ID = strconv.FormatInt(uid.(int64), 10)
-		default:
-			return
+			x.ID = "0"
+			ctx.SetCookie(x.GetCookieName(), "", -1)
+		} else {
+			switch uid.(type) {
+			case string:
+				x.ID = uid.(string)
+			case int64:
+				x.ID = strconv.FormatInt(uid.(int64), 10)
+			default:
+				return
+			}
 		}
 
-		if ctx.Req.Method != "GET" || ctx.Req.Header.Get("Origin") != "" {
+		if ctx.Req.Header.Get("Origin") != "" {
 			return
 		}
 
 		// If cookie present, map existing token, else generate a new one.
-		if ex, err := ctx.Req.Cookie(opts.Cookie); err == nil && ex.Value != "" {
-			x.Token = ex.Value
+		if val := ctx.GetCookie(opt.Cookie); val != "" {
+			x.Token = val
 		} else {
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
-			if opts.SetCookie {
-				expire := time.Now().AddDate(0, 0, 1)
-				// Verify the domain is valid. If it is not, set as empty.
-				domain := strings.Split(ctx.Req.Host, ":")[0]
-				if ok, err := regexp.Match(domainReg, []byte(domain)); !ok || err != nil {
-					domain = ""
-				}
-
-				cookie := &http.Cookie{
-					Name:       opts.Cookie,
-					Value:      x.Token,
-					Path:       "/",
-					Domain:     domain,
-					Expires:    expire,
-					RawExpires: expire.Format(time.UnixDate),
-					MaxAge:     0,
-					Secure:     opts.Secure,
-					HttpOnly:   false,
-					Raw:        fmt.Sprintf("%s=%s", opts.Cookie, x.Token),
-					Unparsed:   []string{fmt.Sprintf("token=%s", x.Token)},
-				}
-				http.SetCookie(ctx.Resp, cookie)
+			if opt.SetCookie && x.ID != "0" {
+				ctx.SetCookie(opt.Cookie, x.Token)
 			}
 		}
 
-		if opts.SetHeader {
-			ctx.Resp.Header().Add(opts.Header, x.Token)
+		if opt.SetHeader {
+			ctx.Resp.Header().Add(opt.Header, x.Token)
 		}
 	}
 
@@ -202,20 +192,21 @@ func Generate(opts *Options) macaron.Handler {
 // HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
-func Validate(r *http.Request, w http.ResponseWriter, x CSRF) {
-	if token := r.Header.Get(x.GetHeaderName()); token != "" {
+func Validate(ctx *macaron.Context, x CSRF) {
+	if token := ctx.Req.Header.Get(x.GetHeaderName()); token != "" {
 		if !x.ValidToken(token) {
-			x.Error(w)
+			ctx.SetCookie(x.GetCookieName(), "", -1)
+			x.Error(ctx.Resp)
 		}
 		return
 	}
-	if token := r.FormValue(x.GetFormName()); token != "" {
+	if token := ctx.Req.FormValue(x.GetFormName()); token != "" {
 		if !x.ValidToken(token) {
-			x.Error(w)
+			ctx.SetCookie(x.GetCookieName(), "", -1)
+			x.Error(ctx.Resp)
 		}
 		return
 	}
 
-	http.Error(w, "Bad Request", http.StatusBadRequest)
-	return
+	http.Error(ctx.Resp, "Bad Request: no CSRF token represnet", http.StatusBadRequest)
 }

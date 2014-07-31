@@ -25,8 +25,7 @@ import (
 func main() {
     m := macaron.Classic()
     m.Use(session.Sessioner())
-    // Setup generation middleware.
-    m.Use(csrf.Generate(&csrf.Options{
+    m.Use(csrf.Generate(csrf.Options{
         Secret:     "token123",
         SessionKey: "userID",
         // Custom error response.
@@ -34,7 +33,7 @@ func main() {
             http.Error(w, "CSRF token validation failed", http.StatusBadRequest)
         },
     }))
-    m.Use(macaron.Renderer(macaron.RenderOptions{}))
+    m.Use(macaron.Renderer())
 
     // Simulate the authentication of a session. If userID exists redirect
     // to a form that requires csrf protection.
