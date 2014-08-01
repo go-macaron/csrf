@@ -167,9 +167,9 @@ func Generate(options ...Options) macaron.Handler {
 			}
 		}
 
-		if ctx.Req.Header.Get("Origin") != "" {
-			return
-		}
+		// if ctx.Req.Header.Get("Origin") != "" {
+		// 	return
+		// }
 
 		// If cookie present, map existing token, else generate a new one.
 		if val := ctx.GetCookie(opt.Cookie); val != "" {
