@@ -24,7 +24,7 @@ import (
 	"github.com/macaron-contrib/session"
 )
 
-// CSRF is used to get the current token and validate a suspect token.
+// CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
 	// Return HTTP header to search for token.
 	GetHeaderName() string
