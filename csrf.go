@@ -32,6 +32,8 @@ type CSRF interface {
 	GetFormName() string
 	// Return cookie name to search for token.
 	GetCookieName() string
+	// Return cookie path
+	GetCookiePath() string
 	// Return the token.
 	GetToken() string
 	// Validate by token.
@@ -47,6 +49,8 @@ type csrf struct {
 	Form string
 	// Cookie name value for setting and getting csrf token.
 	Cookie string
+	//Cookie path
+	CookiePath string
 	// Token generated to pass via header, cookie, or hidden form value.
 	Token string
 	// This value must be unique per user.
@@ -70,6 +74,11 @@ func (c *csrf) GetFormName() string {
 // Returns the name of the cookie for csrf token.
 func (c *csrf) GetCookieName() string {
 	return c.Cookie
+}
+
+// Returns the path of the cookie for csrf token.
+func (c *csrf) GetCookiePath() string {
+	return c.CookiePath
 }
 
 // Returns the current token. This is typically used
@@ -98,6 +107,8 @@ type Options struct {
 	Form string
 	// Cookie value used to set and get token.
 	Cookie string
+	// Cookie path
+	CookiePath string
 	// Key used for getting the unique ID per user.
 	SessionKey string
 	// If true, send token via X-CSRFToken header.
@@ -126,6 +137,9 @@ func prepareOptions(options []Options) Options {
 	if len(opt.Cookie) == 0 {
 		opt.Cookie = "_csrf"
 	}
+	if len(opt.CookiePath) == 0 {
+		opt.CookiePath = "/"
+	}
 	if len(opt.SessionKey) == 0 {
 		opt.SessionKey = "uid"
 	}
@@ -144,18 +158,19 @@ func Generate(options ...Options) macaron.Handler {
 	opt := prepareOptions(options)
 	return func(ctx *macaron.Context, sess session.Store) {
 		x := &csrf{
-			Secret:    opt.Secret,
-			Header:    opt.Header,
-			Form:      opt.Form,
-			Cookie:    opt.Cookie,
-			ErrorFunc: opt.ErrorFunc,
+			Secret:     opt.Secret,
+			Header:     opt.Header,
+			Form:       opt.Form,
+			Cookie:     opt.Cookie,
+			CookiePath: opt.CookiePath,
+			ErrorFunc:  opt.ErrorFunc,
 		}
 		ctx.MapTo(x, (*CSRF)(nil))
 
 		uid := sess.Get(opt.SessionKey)
 		if uid == nil {
 			x.ID = "0"
-			ctx.SetCookie(x.GetCookieName(), "", -1)
+			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
 		} else {
 			switch uid.(type) {
 			case string:
@@ -177,7 +192,7 @@ func Generate(options ...Options) macaron.Handler {
 		} else {
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
 			if opt.SetCookie && x.ID != "0" {
-				ctx.SetCookie(opt.Cookie, x.Token)
+				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath)
 			}
 		}
 
@@ -195,14 +210,14 @@ func Generate(options ...Options) macaron.Handler {
 func Validate(ctx *macaron.Context, x CSRF) {
 	if token := ctx.Req.Header.Get(x.GetHeaderName()); token != "" {
 		if !x.ValidToken(token) {
-			ctx.SetCookie(x.GetCookieName(), "", -1)
+			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
 			x.Error(ctx.Resp)
 		}
 		return
 	}
 	if token := ctx.Req.FormValue(x.GetFormName()); token != "" {
 		if !x.ValidToken(token) {
-			ctx.SetCookie(x.GetCookieName(), "", -1)
+			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
 			x.Error(ctx.Resp)
 		}
 		return
