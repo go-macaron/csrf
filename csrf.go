@@ -200,7 +200,12 @@ func Generate(options ...Options) macaron.Handler {
 			ctx.Resp.Header().Add(opt.Header, x.Token)
 		}
 	}
+}
 
+// Csrfer maps CSRF to each request. If this request is a Get request, it will generate a new token.
+// Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
+func Csrfer(options ...Options) macaron.Handler {
+	return Generate(options...)
 }
 
 // Validate should be used as a per route middleware. It attempts to get a token from a "X-CSRFToken"

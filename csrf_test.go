@@ -31,7 +31,7 @@ import (
 func Test_GenerateToken(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 	}))
@@ -64,7 +64,7 @@ func Test_GenerateToken(t *testing.T) {
 func Test_GenerateCookie(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		SetCookie:  true,
@@ -98,7 +98,7 @@ func Test_GenerateCookie(t *testing.T) {
 func Test_GenerateCustomCookie(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		SetCookie:  true,
@@ -133,7 +133,7 @@ func Test_GenerateCustomCookie(t *testing.T) {
 func Test_GenerateHeader(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		SetHeader:  true,
@@ -167,7 +167,7 @@ func Test_GenerateHeader(t *testing.T) {
 // func Test_OriginHeader(t *testing.T) {
 // 	m := macaron.Classic()
 // 	m.Use(session.Sessioner())
-// 	m.Use(Generate(Options{
+// 	m.Use(Csrfer(Options{
 // 		Secret:     "token123",
 // 		SessionKey: "userID",
 // 		SetHeader:  true,
@@ -202,7 +202,7 @@ func Test_GenerateHeader(t *testing.T) {
 func Test_GenerateCustomHeader(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		SetHeader:  true,
@@ -237,7 +237,7 @@ func Test_GenerateCustomHeader(t *testing.T) {
 func Test_Validate(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 	}))
@@ -297,7 +297,7 @@ func Test_Validate(t *testing.T) {
 func Test_ValidateCustom(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		Header:     "X-SEESurfToken",
@@ -359,7 +359,7 @@ func Test_ValidateCustom(t *testing.T) {
 func Test_ValidateCustomError(t *testing.T) {
 	m := macaron.Classic()
 	m.Use(session.Sessioner())
-	m.Use(Generate(Options{
+	m.Use(Csrfer(Options{
 		Secret:     "token123",
 		SessionKey: "userID",
 		ErrorFunc: func(w http.ResponseWriter) {

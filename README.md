@@ -25,7 +25,7 @@ import (
 func main() {
     m := macaron.Classic()
     m.Use(session.Sessioner())
-    m.Use(csrf.Generate(csrf.Options{
+    m.Use(csrf.Csrfer(csrf.Options{
         Secret:     "token123",
         SessionKey: "userID",
         // Custom error response.
