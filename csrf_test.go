@@ -20,405 +20,467 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 
+	"github.com/Unknwon/com"
 	"github.com/Unknwon/macaron"
 	"github.com/macaron-contrib/session"
+	. "github.com/smartystreets/goconvey/convey"
 )
 
 func Test_GenerateToken(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-	}))
+	Convey("Generate token", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer())
 
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		// Simulate login.
+		m.Get("/login", func(sess session.Store, x CSRF) {
+			sess.Set("uid", "123456")
+		})
+
+		// Generate token.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
 	})
-
-	// Generate token.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return x.GetToken()
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-	m.ServeHTTP(res2, req2)
-
-	if res2.Body.String() == "" {
-		t.Error("Failed to generate token")
-	}
 }
 
 func Test_GenerateCookie(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		SetCookie:  true,
-	}))
+	Convey("Generate token to Cookie", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			SetCookie: true,
+		}))
 
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", 123456)
+		})
+
+		// Generate cookie.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Header().Get("Set-Cookie"), ShouldContainSubstring, "_csrf")
 	})
 
-	// Generate cookie.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return "OK"
+	Convey("Generate token to custom Cookie", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			Cookie:    "custom",
+			SetCookie: true,
+		}))
+
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", int64(123456))
+		})
+
+		// Generate cookie.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Header().Get("Set-Cookie"), ShouldContainSubstring, "custom")
 	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-	m.ServeHTTP(res2, req2)
-
-	if !strings.Contains(res2.Header().Get("Set-Cookie"), "_csrf") {
-		t.Error("Failed to set csrf cookie")
-	}
-}
-
-func Test_GenerateCustomCookie(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		SetCookie:  true,
-		Cookie:     "seesurf",
-	}))
-
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
-	})
-
-	// Generate cookie.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return "OK"
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-	m.ServeHTTP(res2, req2)
-
-	if !strings.Contains(res2.Header().Get("Set-Cookie"), "seesurf") {
-		t.Error("Failed to set custom csrf cookie")
-	}
 }
 
 func Test_GenerateHeader(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		SetHeader:  true,
-	}))
+	Convey("Generate token to header", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			SetHeader: true,
+		}))
 
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", "123456")
+		})
+
+		// Generate HTTP header.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Header().Get("X-CSRFToken"), ShouldNotBeEmpty)
 	})
 
-	// Generate HTTP header.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return "OK"
+	Convey("Generate token to header with origin", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			SetHeader: true,
+			Origin:    true,
+		}))
+
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", "123456")
+		})
+
+		// Generate HTTP header.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		req.Header.Set("Origin", "https://www.example.com")
+		m.ServeHTTP(resp, req)
+
+		So(resp.Header().Get("X-CSRFToken"), ShouldBeEmpty)
 	})
 
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
+	Convey("Generate token to custom header", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			Header:    "X-Custom",
+			SetHeader: true,
+		}))
 
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-	m.ServeHTTP(res2, req2)
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", "123456")
+		})
 
-	if res2.Header().Get("X-CSRFToken") == "" {
-		t.Error("Failed to set X-CSRFToken header")
-	}
-}
+		// Generate HTTP header.
+		m.Get("/private", func() {})
 
-// func Test_OriginHeader(t *testing.T) {
-// 	m := macaron.Classic()
-// 	m.Use(session.Sessioner())
-// 	m.Use(Csrfer(Options{
-// 		Secret:     "token123",
-// 		SessionKey: "userID",
-// 		SetHeader:  true,
-// 	}))
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
 
-// 	// Simulate login.
-// 	m.Get("/login", func(s session.Store) string {
-// 		s.Set("userID", "123456")
-// 		return "OK"
-// 	})
+		cookie := resp.Header().Get("Set-Cookie")
 
-// 	// Generate HTTP header.
-// 	m.Get("/private", func(s session.Store, x CSRF) string {
-// 		return "OK"
-// 	})
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
 
-// 	res := httptest.NewRecorder()
-// 	req, _ := http.NewRequest("GET", "/login", nil)
-// 	m.ServeHTTP(res, req)
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
 
-// 	res2 := httptest.NewRecorder()
-// 	req2, _ := http.NewRequest("GET", "/private", nil)
-// 	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-// 	req2.Header.Set("Origin", "https://www.example.com")
-// 	m.ServeHTTP(res2, req2)
-
-// 	if res2.Header().Get("X-CSRFToken") != "" {
-// 		t.Error("X-CSRFToken present in cross origin request")
-// 	}
-// }
-
-func Test_GenerateCustomHeader(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		SetHeader:  true,
-		Header:     "X-SEESurfToken",
-	}))
-
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		So(resp.Header().Get("X-Custom"), ShouldNotBeEmpty)
 	})
-
-	// Generate HTTP header.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return "OK"
-	})
-
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", res.Header().Get("Set-Cookie"))
-	m.ServeHTTP(res2, req2)
-
-	if res2.Header().Get("X-SEESurfToken") == "" {
-		t.Error("Failed to set X-SEESurfToken custom header")
-	}
 }
 
 func Test_Validate(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-	}))
+	Convey("Validate token", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer())
 
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", 123456)
+		})
+
+		// Generate token.
+		m.Get("/private", func(x CSRF) string {
+			return x.GetToken()
+		})
+
+		m.Post("/private", Validate, func() {})
+
+		// Login to set session.
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		// Get a new token.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		token := resp.Body.String()
+
+		// Post using _csrf form value.
+		data := url.Values{}
+		data.Set("_csrf", token)
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldNotEqual, http.StatusBadRequest)
+
+		// Post using X-CSRFToken HTTP header.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("X-CSRFToken", token)
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldNotEqual, http.StatusBadRequest)
 	})
 
-	// Generate token.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return x.GetToken()
+	Convey("Validate custom token", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			Header: "X-Custom",
+			Form:   "_custom",
+		}))
+
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", 123456)
+		})
+
+		// Generate token.
+		m.Get("/private", func(x CSRF) string {
+			return x.GetToken()
+		})
+
+		m.Post("/private", Validate, func() {})
+
+		// Login to set session.
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		// Get a new token.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		token := resp.Body.String()
+
+		// Post using _csrf form value.
+		data := url.Values{}
+		data.Set("_custom", token)
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldNotEqual, http.StatusBadRequest)
+
+		// Post using X-Custom HTTP header.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("X-Custom", token)
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldNotEqual, http.StatusBadRequest)
 	})
 
-	m.Post("/private", Validate, func(s session.Store) string {
-		return "OK"
+	Convey("Validate token with custom error func", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer(Options{
+			ErrorFunc: func(w http.ResponseWriter) {
+				http.Error(w, "custom error", 422)
+			},
+		}))
+
+		// Simulate login.
+		m.Get("/login", func(sess session.Store) {
+			sess.Set("uid", 123456)
+		})
+
+		// Generate token.
+		m.Get("/private", func(x CSRF) string {
+			return x.GetToken()
+		})
+
+		m.Post("/private", Validate, func() {})
+
+		// Login to set session.
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		// Get a new token.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		// Post using _csrf form value.
+		data := url.Values{}
+		data.Set("_csrf", "invalid")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldEqual, 422)
+		So(resp.Body.String(), ShouldEqual, "custom error\n")
+
+		// Post using X-CSRFToken HTTP header.
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("POST", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("X-CSRFToken", "invalid")
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldEqual, 422)
+		So(resp.Body.String(), ShouldEqual, "custom error\n")
 	})
-
-	// Login to set session.
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	cookie := res.Header().Get("Set-Cookie")
-
-	// Get a new token.
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res2, req2)
-
-	// Post using _csrf form value.
-	data := url.Values{}
-	data.Set("_csrf", res2.Body.String())
-	res3 := httptest.NewRecorder()
-	req3, _ := http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
-	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req3.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-	req3.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res3, req3)
-	if res3.Code == 400 {
-		t.Error("Validation of _csrf form value failed")
-	}
-
-	// Post using X-CSRFToken HTTP header.
-	res4 := httptest.NewRecorder()
-	req4, _ := http.NewRequest("POST", "/private", nil)
-	req4.Header.Set("X-CSRFToken", res2.Body.String())
-	req4.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res4, req4)
-	if res4.Code == 400 {
-		t.Error("Validation of X-CSRFToken failed")
-	}
 }
 
-func Test_ValidateCustom(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		Header:     "X-SEESurfToken",
-		Form:       "_seesurf",
-	}))
+func Test_Invalid(t *testing.T) {
+	Convey("Invalid session data type", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer())
 
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
+		// Simulate login.
+		m.Get("/login", func(sess session.Store, x CSRF) {
+			sess.Set("uid", true)
+		})
+
+		// Generate token.
+		m.Get("/private", func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		cookie := resp.Header().Get("Set-Cookie")
+
+		resp = httptest.NewRecorder()
+		req, err = http.NewRequest("GET", "/private", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("Cookie", cookie)
+		m.ServeHTTP(resp, req)
 	})
 
-	// Generate token.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return x.GetToken()
+	Convey("Invalid request", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer())
+
+		// Simulate login.
+		m.Get("/login", Validate, func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldEqual, http.StatusBadRequest)
 	})
 
-	m.Post("/private", Validate, func(s session.Store) string {
-		return "OK"
+	Convey("Invalid token", t, func() {
+		m := macaron.New()
+		m.Use(session.Sessioner())
+		m.Use(Csrfer())
+
+		// Simulate login.
+		m.Get("/login", Validate, func() {})
+
+		resp := httptest.NewRecorder()
+		req, err := http.NewRequest("GET", "/login", nil)
+		So(err, ShouldBeNil)
+
+		req.Header.Set("X-CSRFToken", "invalid")
+		m.ServeHTTP(resp, req)
+
+		So(resp.Code, ShouldEqual, http.StatusBadRequest)
 	})
-
-	// Login to set session.
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	cookie := res.Header().Get("Set-Cookie")
-
-	// Get a new token.
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res2, req2)
-
-	// Post using custom form value.
-	data := url.Values{}
-	data.Set("_seesurf", res2.Body.String())
-	res3 := httptest.NewRecorder()
-	req3, _ := http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
-	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req3.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-	req3.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res3, req3)
-	if res3.Code == 400 {
-		t.Error("Valiation of _seesurf custom form value failed")
-	}
-
-	// Post using custom HTTP header.
-	res4 := httptest.NewRecorder()
-	req4, _ := http.NewRequest("POST", "/private", nil)
-	req4.Header.Set("X-SEESurfToken", res2.Body.String())
-	req4.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res4, req4)
-	if res4.Code == 400 {
-		t.Error("Validation of X-SEESurfToken custom header value failed")
-	}
-}
-
-func Test_ValidateCustomError(t *testing.T) {
-	m := macaron.Classic()
-	m.Use(session.Sessioner())
-	m.Use(Csrfer(Options{
-		Secret:     "token123",
-		SessionKey: "userID",
-		ErrorFunc: func(w http.ResponseWriter) {
-			http.Error(w, "custom error", 422)
-		},
-	}))
-
-	// Simulate login.
-	m.Get("/login", func(s session.Store) string {
-		s.Set("userID", "123456")
-		return "OK"
-	})
-
-	// Generate token.
-	m.Get("/private", func(s session.Store, x CSRF) string {
-		return x.GetToken()
-	})
-
-	m.Post("/private", Validate, func(s session.Store) string {
-		return "OK"
-	})
-
-	// Login to set session.
-	res := httptest.NewRecorder()
-	req, _ := http.NewRequest("GET", "/login", nil)
-	m.ServeHTTP(res, req)
-
-	cookie := res.Header().Get("Set-Cookie")
-
-	// Get a new token.
-	res2 := httptest.NewRecorder()
-	req2, _ := http.NewRequest("GET", "/private", nil)
-	req2.Header.Set("Cookie", cookie)
-	m.ServeHTTP(res2, req2)
-
-	// Post using _csrf form value.
-	data := url.Values{}
-	data.Set("_csrf", "invalid")
-	res3 := httptest.NewRecorder()
-	req3, _ := http.NewRequest("POST", "/private", bytes.NewBufferString(data.Encode()))
-	req3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req3.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
-	m.ServeHTTP(res3, req3)
-	if res3.Code != 422 {
-		t.Errorf("Custom error response code failed: %d", res3.Code)
-	}
-	if res3.Body.String() != "custom error\n" {
-		t.Errorf("Custom error response body failed: %s", res3.Body)
-	}
-
-	// Post using X-CSRFToken HTTP header.
-	res4 := httptest.NewRecorder()
-	req4, _ := http.NewRequest("POST", "/private", nil)
-	req4.Header.Set("X-CSRFToken", "invalid")
-	m.ServeHTTP(res4, req4)
-	if res4.Code != 422 {
-		t.Errorf("Custom error response code failed: %d", res4.Code)
-	}
-	if res4.Body.String() != "custom error\n" {
-		t.Errorf("Custom error response body failed: %s", res4.Body)
-	}
 }

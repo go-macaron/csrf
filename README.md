@@ -1,4 +1,4 @@
-csrf
+csrf [![Build Status](https://drone.io/github.com/macaron-contrib/csrf/status.png)](https://drone.io/github.com/macaron-contrib/csrf/latest) [![](http://gocover.io/_badge/github.com/macaron-contrib/csrf)](http://gocover.io/github.com/macaron-contrib/csrf)
 ====
 
 Middleware csrf generates and validates csrf tokens for [Macaron](https://github.com/Unknwon/macaron).

@@ -13,13 +13,13 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-// Package csrf is a middleware that generates and validates csrf tokens for Macaron.
+// Package csrf is a middleware that generates and validates CSRF tokens for Macaron.
 package csrf
 
 import (
 	"net/http"
-	"strconv"
 
+	"github.com/Unknwon/com"
 	"github.com/Unknwon/macaron"
 	"github.com/macaron-contrib/session"
 )
@@ -61,33 +61,33 @@ type csrf struct {
 	ErrorFunc func(w http.ResponseWriter)
 }
 
-// Returns the name of the HTTP header for csrf token.
+// GetHeaderName returns the name of the HTTP header for csrf token.
 func (c *csrf) GetHeaderName() string {
 	return c.Header
 }
 
-// Returns the name of the form value for csrf token.
+// GetFormName returns the name of the form value for csrf token.
 func (c *csrf) GetFormName() string {
 	return c.Form
 }
 
-// Returns the name of the cookie for csrf token.
+// GetCookieName returns the name of the cookie for csrf token.
 func (c *csrf) GetCookieName() string {
 	return c.Cookie
 }
 
-// Returns the path of the cookie for csrf token.
+// GetCookiePath returns the path of the cookie for csrf token.
 func (c *csrf) GetCookiePath() string {
 	return c.CookiePath
 }
 
-// Returns the current token. This is typically used
+// GetToken returns the current token. This is typically used
 // to populate a hidden form in an HTML template.
 func (c *csrf) GetToken() string {
 	return c.Token
 }
 
-// Validates the passed token against the existing Secret and ID.
+// ValidToken validates the passed token against the existing Secret and ID.
 func (c *csrf) ValidToken(t string) bool {
 	return ValidToken(t, c.Secret, c.ID, "POST")
 }
@@ -117,6 +117,8 @@ type Options struct {
 	SetCookie bool
 	// Set the Secure flag to true on the cookie.
 	Secure bool
+	// Disallow Origin appear in request header.
+	Origin bool
 	// The function called when Validate fails.
 	ErrorFunc func(w http.ResponseWriter)
 }
@@ -127,7 +129,10 @@ func prepareOptions(options []Options) Options {
 		opt = options[0]
 	}
 
-	// Defaults
+	// Defaults.
+	if len(opt.Secret) == 0 {
+		opt.Secret = string(com.RandomCreateBytes(10))
+	}
 	if len(opt.Header) == 0 {
 		opt.Header = "X-CSRFToken"
 	}
@@ -175,19 +180,21 @@ func Generate(options ...Options) macaron.Handler {
 			switch uid.(type) {
 			case string:
 				x.ID = uid.(string)
+			case int:
+				x.ID = com.ToStr(uid)
 			case int64:
-				x.ID = strconv.FormatInt(uid.(int64), 10)
+				x.ID = com.ToStr(uid)
 			default:
 				return
 			}
 		}
 
-		// if ctx.Req.Header.Get("Origin") != "" {
-		// 	return
-		// }
+		if opt.Origin && len(ctx.Req.Header.Get("Origin")) > 0 {
+			return
+		}
 
 		// If cookie present, map existing token, else generate a new one.
-		if val := ctx.GetCookie(opt.Cookie); val != "" {
+		if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
 			x.Token = val
 		} else {
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
