@@ -107,7 +107,7 @@ type Options struct {
 	Form string
 	// Cookie value used to set and get token.
 	Cookie string
-	// Cookie path
+	// Cookie path.
 	CookiePath string
 	// Key used for getting the unique ID per user.
 	SessionKey string
