@@ -24,6 +24,12 @@ import (
 	"github.com/macaron-contrib/session"
 )
 
+const _VERSION = "0.0.1"
+
+func Version() string {
+	return _VERSION
+}
+
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
 	// Return HTTP header to search for token.

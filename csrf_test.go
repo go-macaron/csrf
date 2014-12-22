@@ -28,6 +28,12 @@ import (
 	. "github.com/smartystreets/goconvey/convey"
 )
 
+func Test_Version(t *testing.T) {
+	Convey("Check package version", t, func() {
+		So(Version(), ShouldEqual, _VERSION)
+	})
+}
+
 func Test_GenerateToken(t *testing.T) {
 	Convey("Generate token", t, func() {
 		m := macaron.New()
