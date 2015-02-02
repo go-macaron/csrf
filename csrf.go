@@ -24,7 +24,7 @@ import (
 	"github.com/macaron-contrib/session"
 )
 
-const _VERSION = "0.0.1"
+const _VERSION = "0.0.2"
 
 func Version() string {
 	return _VERSION
@@ -203,8 +203,9 @@ func Generate(options ...Options) macaron.Handler {
 		if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
 			x.Token = val
 		} else {
+			// FIXME: actionId.
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
-			if opt.SetCookie && x.ID != "0" {
+			if opt.SetCookie {
 				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath)
 			}
 		}
