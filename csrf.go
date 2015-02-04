@@ -203,9 +203,7 @@ func Generate(options ...Options) macaron.Handler {
 		if oldUid == nil || oldUid.(string) != x.ID {
 			needsNew = true
 			sess.Set(opt.oldSeesionKey, x.ID)
-		}
-
-		if !needsNew {
+		} else {
 			// If cookie present, map existing token, else generate a new one.
 			if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
 				// FIXME: test coverage.
