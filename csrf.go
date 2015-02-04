@@ -117,6 +117,8 @@ type Options struct {
 	CookiePath string
 	// Key used for getting the unique ID per user.
 	SessionKey string
+	// oldSeesionKey saves old value corresponding to SessionKey.
+	oldSeesionKey string
 	// If true, send token via X-CSRFToken header.
 	SetHeader bool
 	// If true, send token via _csrf cookie.
@@ -154,6 +156,7 @@ func prepareOptions(options []Options) Options {
 	if len(opt.SessionKey) == 0 {
 		opt.SessionKey = "uid"
 	}
+	opt.oldSeesionKey = "_old_" + opt.SessionKey
 	if opt.ErrorFunc == nil {
 		opt.ErrorFunc = func(w http.ResponseWriter) {
 			http.Error(w, "Invalid csrf token.", http.StatusBadRequest)
@@ -178,11 +181,13 @@ func Generate(options ...Options) macaron.Handler {
 		}
 		ctx.MapTo(x, (*CSRF)(nil))
 
+		if opt.Origin && len(ctx.Req.Header.Get("Origin")) > 0 {
+			return
+		}
+
+		x.ID = "0"
 		uid := sess.Get(opt.SessionKey)
-		if uid == nil {
-			x.ID = "0"
-			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
-		} else {
+		if uid != nil {
 			switch uid.(type) {
 			case string:
 				x.ID = uid.(string)
@@ -190,26 +195,34 @@ func Generate(options ...Options) macaron.Handler {
 				x.ID = com.ToStr(uid)
 			case int64:
 				x.ID = com.ToStr(uid)
-			default:
-				return
 			}
 		}
 
-		if opt.Origin && len(ctx.Req.Header.Get("Origin")) > 0 {
-			return
+		needsNew := false
+		oldUid := sess.Get(opt.oldSeesionKey)
+		if oldUid == nil || oldUid.(string) != x.ID {
+			needsNew = true
+			sess.Set(opt.oldSeesionKey, x.ID)
 		}
 
-		// If cookie present, map existing token, else generate a new one.
-		if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
-			x.Token = val
-		} else {
+		if !needsNew {
+			// If cookie present, map existing token, else generate a new one.
+			if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
+				// FIXME: test coverage.
+				x.Token = val
+			} else {
+				needsNew = true
+			}
+		}
+
+		if needsNew {
 			// FIXME: actionId.
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
-			if opt.SetCookie {
-				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath)
-			}
 		}
 
+		if opt.SetCookie {
+			ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath)
+		}
 		if opt.SetHeader {
 			ctx.Resp.Header().Add(opt.Header, x.Token)
 		}
