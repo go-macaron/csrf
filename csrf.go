@@ -24,7 +24,7 @@ import (
 	"gopkg.in/macaron.v1"
 )
 
-const _VERSION = "0.0.3"
+const _VERSION = "0.0.4"
 
 func Version() string {
 	return _VERSION
@@ -238,14 +238,14 @@ func Csrfer(options ...Options) macaron.Handler {
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
 func Validate(ctx *macaron.Context, x CSRF) {
-	if token := ctx.Req.Header.Get(x.GetHeaderName()); token != "" {
+	if token := ctx.Req.Header.Get(x.GetHeaderName()); len(token) > 0 {
 		if !x.ValidToken(token) {
 			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
 			x.Error(ctx.Resp)
 		}
 		return
 	}
-	if token := ctx.Req.FormValue(x.GetFormName()); token != "" {
+	if token := ctx.Req.FormValue(x.GetFormName()); len(token) > 0 {
 		if !x.ValidToken(token) {
 			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
 			x.Error(ctx.Resp)
