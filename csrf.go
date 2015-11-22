@@ -253,5 +253,5 @@ func Validate(ctx *macaron.Context, x CSRF) {
 		return
 	}
 
-	http.Error(ctx.Resp, "Bad Request: no CSRF token represnet", http.StatusBadRequest)
+	http.Error(ctx.Resp, "Bad Request: no CSRF token present", http.StatusBadRequest)
 }
