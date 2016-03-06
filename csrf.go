@@ -188,14 +188,7 @@ func Generate(options ...Options) macaron.Handler {
 		x.ID = "0"
 		uid := sess.Get(opt.SessionKey)
 		if uid != nil {
-			switch uid.(type) {
-			case string:
-				x.ID = uid.(string)
-			case int:
-				x.ID = com.ToStr(uid)
-			case int64:
-				x.ID = com.ToStr(uid)
-			}
+			x.ID = com.ToStr(uid)
 		}
 
 		needsNew := false
