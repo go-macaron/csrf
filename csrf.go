@@ -24,7 +24,7 @@ import (
 	"gopkg.in/macaron.v1"
 )
 
-const _VERSION = "0.0.4"
+const _VERSION = "0.0.5"
 
 func Version() string {
 	return _VERSION
@@ -219,7 +219,7 @@ func Generate(options ...Options) macaron.Handler {
 		}
 
 		if opt.SetCookie {
-			ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath)
+			ctx.SetCookie(opt.Cookie, x.Token, 86400, opt.CookiePath)
 		}
 		if opt.SetHeader {
 			ctx.Resp.Header().Add(opt.Header, x.Token)
