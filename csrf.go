@@ -18,13 +18,14 @@ package csrf
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/Unknwon/com"
 	"github.com/go-macaron/session"
 	"gopkg.in/macaron.v1"
 )
 
-const _VERSION = "0.0.5"
+const _VERSION = "0.1.0"
 
 func Version() string {
 	return _VERSION
@@ -209,11 +210,11 @@ func Generate(options ...Options) macaron.Handler {
 		if needsNew {
 			// FIXME: actionId.
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
+			if opt.SetCookie {
+				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, "", false, true, time.Now().AddDate(0, 0, 1))
+			}
 		}
 
-		if opt.SetCookie {
-			ctx.SetCookie(opt.Cookie, x.Token, 86400, opt.CookiePath)
-		}
 		if opt.SetHeader {
 			ctx.Resp.Header().Add(opt.Header, x.Token)
 		}
