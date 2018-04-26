@@ -222,7 +222,7 @@ func Generate(options ...Options) macaron.Handler {
 			// FIXME: actionId.
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
 			if opt.SetCookie {
-				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, "", false, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
+				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, "", opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
 			}
 		}
 
