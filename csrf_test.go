@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/Unknwon/com"
+	"github.com/unknwon/com"
 	"github.com/go-macaron/session"
 	. "github.com/smartystreets/goconvey/convey"
 	"gopkg.in/macaron.v1"

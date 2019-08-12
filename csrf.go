@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Unknwon/com"
+	"github.com/unknwon/com"
 	"github.com/go-macaron/session"
 	"gopkg.in/macaron.v1"
 )
