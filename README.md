@@ -11,7 +11,7 @@ Middleware csrf generates and validates CSRF tokens for [Macaron](https://github
 ## Getting Help
 
 - [API Reference](https://gowalker.org/github.com/go-macaron/csrf)
-- [Documentation](http://go-macaron.com/docs/middlewares/csrf)
+- [Documentation](https://go-macaron.com/middlewares/csrf)
 
 ## License
 
