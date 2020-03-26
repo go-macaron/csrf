@@ -124,7 +124,8 @@ type Options struct {
 	// Cookie domain.
 	CookieDomain string
 	// Cookie path.
-	CookiePath     string
+	CookiePath string
+	// Enable cookie HttpOnly attribute.
 	CookieHttpOnly bool
 	// Key used for getting the unique ID per user.
 	SessionKey string
