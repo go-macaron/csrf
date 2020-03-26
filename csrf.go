@@ -17,19 +17,15 @@
 package csrf
 
 import (
+	"crypto/rand"
+	"fmt"
+	r "math/rand"
 	"net/http"
 	"time"
 
-	"github.com/unknwon/com"
 	"github.com/go-macaron/session"
 	"gopkg.in/macaron.v1"
 )
-
-const _VERSION = "0.1.1"
-
-func Version() string {
-	return _VERSION
-}
 
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
 type CSRF interface {
@@ -146,6 +142,25 @@ type Options struct {
 	ErrorFunc func(w http.ResponseWriter)
 }
 
+// randomBytes generates n random []byte.
+func randomBytes(n int) []byte {
+	const alphanum = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+	var bytes = make([]byte, n)
+	var randby bool
+	if num, err := rand.Read(bytes); num != n || err != nil {
+		r.Seed(time.Now().UnixNano())
+		randby = true
+	}
+	for i, b := range bytes {
+		if randby {
+			bytes[i] = alphanum[r.Intn(len(alphanum))]
+		} else {
+			bytes[i] = alphanum[b%byte(len(alphanum))]
+		}
+	}
+	return bytes
+}
+
 func prepareOptions(options []Options) Options {
 	var opt Options
 	if len(options) > 0 {
@@ -154,7 +169,7 @@ func prepareOptions(options []Options) Options {
 
 	// Defaults.
 	if len(opt.Secret) == 0 {
-		opt.Secret = string(com.RandomCreateBytes(10))
+		opt.Secret = string(randomBytes(10))
 	}
 	if len(opt.Header) == 0 {
 		opt.Header = "X-CSRFToken"
@@ -205,7 +220,7 @@ func Generate(options ...Options) macaron.Handler {
 		x.ID = "0"
 		uid := sess.Get(opt.SessionKey)
 		if uid != nil {
-			x.ID = com.ToStr(uid)
+			x.ID = fmt.Sprintf("%s", uid)
 		}
 
 		needsNew := false

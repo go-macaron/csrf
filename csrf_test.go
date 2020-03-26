@@ -20,19 +20,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"testing"
 
-	"github.com/unknwon/com"
 	"github.com/go-macaron/session"
 	. "github.com/smartystreets/goconvey/convey"
 	"gopkg.in/macaron.v1"
 )
-
-func Test_Version(t *testing.T) {
-	Convey("Check package version", t, func() {
-		So(Version(), ShouldEqual, _VERSION)
-	})
-}
 
 func Test_GenerateToken(t *testing.T) {
 	Convey("Generate token", t, func() {
@@ -277,7 +271,7 @@ func Test_Validate(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
 		req.Header.Set("Cookie", cookie)
 		m.ServeHTTP(resp, req)
 
@@ -342,7 +336,7 @@ func Test_Validate(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
 		req.Header.Set("Cookie", cookie)
 		m.ServeHTTP(resp, req)
 
@@ -406,7 +400,7 @@ func Test_Validate(t *testing.T) {
 		So(err, ShouldBeNil)
 
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		req.Header.Set("Content-Length", com.ToStr(len(data.Encode())))
+		req.Header.Set("Content-Length", strconv.Itoa(len(data.Encode())))
 		req.Header.Set("Cookie", cookie)
 		m.ServeHTTP(resp, req)
 
