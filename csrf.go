@@ -228,7 +228,7 @@ func Generate(options ...Options) macaron.Handler {
 		oldUid := sess.Get(opt.oldSeesionKey)
 		if oldUid == nil || oldUid.(string) != x.ID {
 			needsNew = true
-			sess.Set(opt.oldSeesionKey, x.ID)
+			_ = sess.Set(opt.oldSeesionKey, x.ID)
 		} else {
 			// If cookie present, map existing token, else generate a new one.
 			if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {

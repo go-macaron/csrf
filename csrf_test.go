@@ -36,7 +36,7 @@ func Test_GenerateToken(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store, x CSRF) {
-			sess.Set("uid", "123456")
+			_ = sess.Set("uid", "123456")
 		})
 
 		// Generate token.
@@ -68,7 +68,7 @@ func Test_GenerateCookie(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", 123456)
+			_ = sess.Set("uid", 123456)
 		})
 
 		// Generate cookie.
@@ -101,7 +101,7 @@ func Test_GenerateCookie(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", int64(123456))
+			_ = sess.Set("uid", int64(123456))
 		})
 
 		// Generate cookie.
@@ -135,7 +135,7 @@ func Test_GenerateHeader(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", "123456")
+			_ = sess.Set("uid", "123456")
 		})
 
 		// Generate HTTP header.
@@ -168,7 +168,7 @@ func Test_GenerateHeader(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", "123456")
+			_ = sess.Set("uid", "123456")
 		})
 
 		// Generate HTTP header.
@@ -202,7 +202,7 @@ func Test_GenerateHeader(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", "123456")
+			_ = sess.Set("uid", "123456")
 		})
 
 		// Generate HTTP header.
@@ -234,7 +234,7 @@ func Test_Validate(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", 123456)
+			_ = sess.Set("uid", 123456)
 		})
 
 		// Generate token.
@@ -299,7 +299,7 @@ func Test_Validate(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", 123456)
+			_ = sess.Set("uid", 123456)
 		})
 
 		// Generate token.
@@ -365,7 +365,7 @@ func Test_Validate(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store) {
-			sess.Set("uid", 123456)
+			_ = sess.Set("uid", 123456)
 		})
 
 		// Generate token.
@@ -429,7 +429,7 @@ func Test_Invalid(t *testing.T) {
 
 		// Simulate login.
 		m.Get("/login", func(sess session.Store, x CSRF) {
-			sess.Set("uid", true)
+			_ = sess.Set("uid", true)
 		})
 
 		// Generate token.
