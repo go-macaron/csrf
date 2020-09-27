@@ -137,6 +137,8 @@ type Options struct {
 	SetCookie bool
 	// Set the Secure flag to true on the cookie.
 	Secure bool
+	// Set the SameSite attribute to Lax (false) or Strict (true)
+	SameSite bool
 	// Disallow Origin appear in request header.
 	Origin bool
 	// The function called when Validate fails.
@@ -243,7 +245,7 @@ func Generate(options ...Options) macaron.Handler {
 			// FIXME: actionId.
 			x.Token = GenerateToken(x.Secret, x.ID, "POST")
 			if opt.SetCookie {
-				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
+				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1), opt.SameSite)
 			}
 		}
 
