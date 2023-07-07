@@ -17,11 +17,11 @@
 package csrf
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
+	"go.wandrs.dev/binding"
+	"go.wandrs.dev/inject"
 	"go.wandrs.dev/session"
-	"html/template"
 	r "math/rand"
 	"net/http"
 	"time"
@@ -202,63 +202,60 @@ func prepareOptions(options []Options) Options {
 func Generate(options ...Options) func(http.Handler) http.Handler {
 	opt := prepareOptions(options)
 
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			x := &csrf{
-				Secret:         opt.Secret,
-				Header:         opt.Header,
-				Form:           opt.Form,
-				Cookie:         opt.Cookie,
-				CookieDomain:   opt.CookieDomain,
-				CookiePath:     opt.CookiePath,
-				CookieHttpOnly: opt.CookieHttpOnly,
-				ErrorFunc:      opt.ErrorFunc,
-			}
-			sess := session.GetSession(r)
-			if opt.Origin && len(r.Header.Get("Origin")) > 0 {
-				next.ServeHTTP(w, r)
-				return
-			}
+	return binding.Inject(func(injector inject.Injector) error {
+		ctx := binding.ResponseWriter(injector)
+		x := &csrf{
+			Secret:         opt.Secret,
+			Header:         opt.Header,
+			Form:           opt.Form,
+			Cookie:         opt.Cookie,
+			CookieDomain:   opt.CookieDomain,
+			CookiePath:     opt.CookiePath,
+			CookieHttpOnly: opt.CookieHttpOnly,
+			ErrorFunc:      opt.ErrorFunc,
+		}
+		injector.MapTo(x, (*CSRF)(nil))
 
-			x.ID = "0"
-			uid := sess.Get(opt.SessionKey)
-			if uid != nil {
-				x.ID = fmt.Sprintf("%s", uid)
-			}
+		if opt.Origin && len(ctx.Header().Get("Origin")) > 0 {
+			return nil
+		}
 
-			needsNew := false
-			oldUid := sess.Get(opt.oldSeesionKey)
+		sess := session.GetSession(ctx.R().Request())
+		x.ID = "0"
+		uid := sess.Get(opt.SessionKey)
+		if uid != nil {
+			x.ID = fmt.Sprintf("%s", uid)
+		}
 
-			if oldUid == nil || oldUid.(string) != x.ID {
-				needsNew = true
-				_ = sess.Set(opt.oldSeesionKey, x.ID)
+		needsNew := false
+		oldUid := sess.Get(opt.oldSeesionKey)
+		if oldUid == nil || oldUid.(string) != x.ID {
+			needsNew = true
+			_ = sess.Set(opt.oldSeesionKey, x.ID)
+		} else {
+			// If cookie present, map existing token, else generate a new one.
+			if val := session.GetCookie(ctx.R().Request(), opt.Cookie); len(val) > 0 {
+				x.Token = val
 			} else {
-				if val := session.GetCookie(r, opt.Cookie); len(val) > 0 {
-					x.Token = val
-				} else {
-					needsNew = true
-				}
+				needsNew = true
 			}
+		}
 
-			if needsNew {
-				x.Token = GenerateToken(x.Secret, x.ID, "POST")
-				if opt.SetCookie {
-					newCookie := session.NewCookie(opt.Cookie, x.Token, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
-					http.SetCookie(w, newCookie)
-				}
+		if needsNew {
+			x.Token = GenerateToken(x.Secret, x.ID, "POST")
+			if opt.SetCookie {
+				newCookie := session.NewCookie(opt.Cookie, x.Token, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
+				ctx.Header().Add("Set-Cookie", newCookie.String())
 			}
+		}
 
-			if opt.SetHeader {
-				w.Header().Add(opt.Header, x.Token)
-			}
-			ctx := r.Context()
-			ctx = context.WithValue(ctx, "CsrfToken", x.Token)
-			ctx = context.WithValue(ctx, "CsrfTokenHtml", template.HTML(`<input type="hidden" name="_csrf" value="`+ctx.Value("CsrfToken").(string)+`">`))
-			r = r.WithContext(ctx)
+		if opt.SetHeader {
+			ctx.Header().Add(opt.Header, x.Token)
+		}
+		injector.Map(&x)
 
-			next.ServeHTTP(w, r)
-		})
-	}
+		return nil
+	})
 }
 
 // Csrfer maps CSRF to each request. If this request is a Get request, it will generate a new token.
