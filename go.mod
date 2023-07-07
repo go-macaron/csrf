@@ -1,4 +1,4 @@
-module github.com/go-macaron/csrf
+module go.wandrs.dev/csrf
 
 go 1.12
 
