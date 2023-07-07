@@ -17,14 +17,14 @@
 package csrf
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
+	"go.wandrs.dev/session"
+	"html/template"
 	r "math/rand"
 	"net/http"
 	"time"
-
-	"github.com/go-macaron/session"
-	"gopkg.in/macaron.v1"
 )
 
 // CSRF represents a CSRF service and is used to get the current token and validate a suspect token.
@@ -199,63 +199,71 @@ func prepareOptions(options []Options) Options {
 
 // Generate maps CSRF to each request. If this request is a Get request, it will generate a new token.
 // Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
-func Generate(options ...Options) macaron.Handler {
+func Generate(options ...Options) func(http.Handler) http.Handler {
 	opt := prepareOptions(options)
-	return func(ctx *macaron.Context, sess session.Store) {
-		x := &csrf{
-			Secret:         opt.Secret,
-			Header:         opt.Header,
-			Form:           opt.Form,
-			Cookie:         opt.Cookie,
-			CookieDomain:   opt.CookieDomain,
-			CookiePath:     opt.CookiePath,
-			CookieHttpOnly: opt.CookieHttpOnly,
-			ErrorFunc:      opt.ErrorFunc,
-		}
-		ctx.MapTo(x, (*CSRF)(nil))
 
-		if opt.Origin && len(ctx.Req.Header.Get("Origin")) > 0 {
-			return
-		}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			x := &csrf{
+				Secret:         opt.Secret,
+				Header:         opt.Header,
+				Form:           opt.Form,
+				Cookie:         opt.Cookie,
+				CookieDomain:   opt.CookieDomain,
+				CookiePath:     opt.CookiePath,
+				CookieHttpOnly: opt.CookieHttpOnly,
+				ErrorFunc:      opt.ErrorFunc,
+			}
+			sess := session.GetSession(r)
+			if opt.Origin && len(r.Header.Get("Origin")) > 0 {
+				next.ServeHTTP(w, r)
+				return
+			}
 
-		x.ID = "0"
-		uid := sess.Get(opt.SessionKey)
-		if uid != nil {
-			x.ID = fmt.Sprintf("%s", uid)
-		}
+			x.ID = "0"
+			uid := sess.Get(opt.SessionKey)
+			if uid != nil {
+				x.ID = fmt.Sprintf("%s", uid)
+			}
 
-		needsNew := false
-		oldUid := sess.Get(opt.oldSeesionKey)
-		if oldUid == nil || oldUid.(string) != x.ID {
-			needsNew = true
-			_ = sess.Set(opt.oldSeesionKey, x.ID)
-		} else {
-			// If cookie present, map existing token, else generate a new one.
-			if val := ctx.GetCookie(opt.Cookie); len(val) > 0 {
-				// FIXME: test coverage.
-				x.Token = val
-			} else {
+			needsNew := false
+			oldUid := sess.Get(opt.oldSeesionKey)
+
+			if oldUid == nil || oldUid.(string) != x.ID {
 				needsNew = true
+				_ = sess.Set(opt.oldSeesionKey, x.ID)
+			} else {
+				if val := session.GetCookie(r, opt.Cookie); len(val) > 0 {
+					x.Token = val
+				} else {
+					needsNew = true
+				}
 			}
-		}
 
-		if needsNew {
-			// FIXME: actionId.
-			x.Token = GenerateToken(x.Secret, x.ID, "POST")
-			if opt.SetCookie {
-				ctx.SetCookie(opt.Cookie, x.Token, 0, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
+			if needsNew {
+				x.Token = GenerateToken(x.Secret, x.ID, "POST")
+				if opt.SetCookie {
+					newCookie := session.NewCookie(opt.Cookie, x.Token, opt.CookiePath, opt.CookieDomain, opt.Secure, opt.CookieHttpOnly, time.Now().AddDate(0, 0, 1))
+					http.SetCookie(w, newCookie)
+				}
 			}
-		}
 
-		if opt.SetHeader {
-			ctx.Resp.Header().Add(opt.Header, x.Token)
-		}
+			if opt.SetHeader {
+				w.Header().Add(opt.Header, x.Token)
+			}
+			ctx := r.Context()
+			ctx = context.WithValue(ctx, "CsrfToken", x.Token)
+			ctx = context.WithValue(ctx, "CsrfTokenHtml", template.HTML(`<input type="hidden" name="_csrf" value="`+ctx.Value("CsrfToken").(string)+`">`))
+			r = r.WithContext(ctx)
+
+			next.ServeHTTP(w, r)
+		})
 	}
 }
 
 // Csrfer maps CSRF to each request. If this request is a Get request, it will generate a new token.
 // Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
-func Csrfer(options ...Options) macaron.Handler {
+func Csrfer(options ...Options) func(next http.Handler) http.Handler {
 	return Generate(options...)
 }
 
@@ -263,21 +271,35 @@ func Csrfer(options ...Options) macaron.Handler {
 // HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
-func Validate(ctx *macaron.Context, x CSRF) {
-	if token := ctx.Req.Header.Get(x.GetHeaderName()); len(token) > 0 {
-		if !x.ValidToken(token) {
-			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
-			x.Error(ctx.Resp)
+func Validate(next http.Handler, x CSRF) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Header.Get(x.GetHeaderName()); len(token) > 0 {
+			if !x.ValidToken(token) {
+				cookie := &http.Cookie{
+					Name:  x.GetCookieName(),
+					Value: "",
+					Path:  x.GetCookiePath(),
+				}
+				http.SetCookie(w, cookie)
+				x.Error(w)
+				return
+			}
+		} else if token := r.FormValue(x.GetFormName()); len(token) > 0 {
+			if !x.ValidToken(token) {
+				cookie := &http.Cookie{
+					Name:  x.GetCookieName(),
+					Value: "",
+					Path:  x.GetCookiePath(),
+				}
+				http.SetCookie(w, cookie)
+				x.Error(w)
+				return
+			}
+		} else {
+			http.Error(w, "Bad Request: no CSRF token present", http.StatusBadRequest)
+			return
 		}
-		return
-	}
-	if token := ctx.Req.FormValue(x.GetFormName()); len(token) > 0 {
-		if !x.ValidToken(token) {
-			ctx.SetCookie(x.GetCookieName(), "", -1, x.GetCookiePath())
-			x.Error(ctx.Resp)
-		}
-		return
-	}
 
-	http.Error(ctx.Resp, "Bad Request: no CSRF token present", http.StatusBadRequest)
+		next.ServeHTTP(w, r)
+	})
 }
