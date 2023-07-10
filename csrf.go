@@ -268,35 +268,37 @@ func Csrfer(options ...Options) func(next http.Handler) http.Handler {
 // HTTP header and then a "_csrf" form value. If one of these is found, the token will be validated
 // using ValidToken. If this validation fails, custom Error is sent in the reply.
 // If neither a header or form value is found, http.StatusBadRequest is sent.
-func Validate(next http.Handler, x CSRF) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token := r.Header.Get(x.GetHeaderName()); len(token) > 0 {
-			if !x.ValidToken(token) {
-				cookie := &http.Cookie{
-					Name:  x.GetCookieName(),
-					Value: "",
-					Path:  x.GetCookiePath(),
+func Validate(x CSRF) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if token := r.Header.Get(x.GetHeaderName()); len(token) > 0 {
+				if !x.ValidToken(token) {
+					cookie := &http.Cookie{
+						Name:  x.GetCookieName(),
+						Value: "",
+						Path:  x.GetCookiePath(),
+					}
+					http.SetCookie(w, cookie)
+					x.Error(w)
+					return
 				}
-				http.SetCookie(w, cookie)
-				x.Error(w)
+			} else if token := r.FormValue(x.GetFormName()); len(token) > 0 {
+				if !x.ValidToken(token) {
+					cookie := &http.Cookie{
+						Name:  x.GetCookieName(),
+						Value: "",
+						Path:  x.GetCookiePath(),
+					}
+					http.SetCookie(w, cookie)
+					x.Error(w)
+					return
+				}
+			} else {
+				http.Error(w, "Bad Request: no CSRF token present", http.StatusBadRequest)
 				return
 			}
-		} else if token := r.FormValue(x.GetFormName()); len(token) > 0 {
-			if !x.ValidToken(token) {
-				cookie := &http.Cookie{
-					Name:  x.GetCookieName(),
-					Value: "",
-					Path:  x.GetCookiePath(),
-				}
-				http.SetCookie(w, cookie)
-				x.Error(w)
-				return
-			}
-		} else {
-			http.Error(w, "Bad Request: no CSRF token present", http.StatusBadRequest)
-			return
-		}
 
-		next.ServeHTTP(w, r)
-	})
+			next.ServeHTTP(w, r)
+		})
+	}
 }
