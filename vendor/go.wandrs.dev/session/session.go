@@ -17,12 +17,14 @@
 package session
 
 import (
-	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"go.wandrs.dev/binding"
+	"go.wandrs.dev/inject"
 	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 )
 
@@ -233,44 +235,35 @@ func NewCookie(name string, value string, others ...interface{}) *http.Cookie {
 // An single variadic session.Options struct can be optionally provided to configure.
 func Sessioner(options ...Options) func(next http.Handler) http.Handler {
 	opt := PrepareOptions(options)
+
 	manager, err := NewManager(opt.Provider, opt)
 	if err != nil {
 		panic(err)
 	}
+
 	go manager.startGC()
+	return binding.Inject(func(injector inject.Injector) error {
+		w := binding.ResponseWriter(injector)
+		req := w.R().Request()
 
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			sess, err := manager.Start(w, req)
-			if err != nil {
-				panic("session(start): " + err.Error())
-			}
+		sess, err := manager.Start(w, req)
+		if err != nil {
+			panic("session(start): " + err.Error())
+		}
 
-			var s = store{
-				RawStore: sess,
-				Manager:  manager,
-			}
+		s := store{
+			RawStore: sess,
+			Manager:  manager,
+		}
 
-			req = req.WithContext(context.WithValue(req.Context(), interface{}("Session"), &s))
-
-			next.ServeHTTP(w, req)
-
-			if manager.opt.IgnoreReleaseForWebSocket && req.Header.Get("Upgrade") == "websocket" {
-				return
-			}
-
-			if err = sess.Release(); err != nil {
-				panic("session(release): " + err.Error())
-			}
-		})
-	}
+		injector.Map(&s)
+		return nil
+	})
 }
 
 // GetSession returns session store
-func GetSession(req *http.Request) Store {
-	sessCtx := req.Context().Value("Session")
-	sess, _ := sessCtx.(*store)
-	return sess
+func GetSession(injector inject.Injector) *store {
+	return injector.GetVal(reflect.TypeOf(&store{})).Interface().(*store)
 }
 
 // Provider is the interface that provides session manipulations.

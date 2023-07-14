@@ -6,13 +6,12 @@ package http
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
-
-	"log"
 )
 
 // Forms a new enhancement of http.Request

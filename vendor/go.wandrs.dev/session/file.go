@@ -17,7 +17,7 @@ package session
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -91,7 +91,7 @@ func (s *FileStore) Release() error {
 		return err
 	}
 
-	return ioutil.WriteFile(s.p.filepath(s.sid), data, 0600)
+	return os.WriteFile(s.p.filepath(s.sid), data, 0o600)
 }
 
 // Flush deletes all session data.
@@ -126,7 +126,7 @@ func (p *FileProvider) filepath(sid string) string {
 // Read returns raw session store by session ID.
 func (p *FileProvider) Read(sid string) (_ RawStore, err error) {
 	filename := p.filepath(sid)
-	if err = os.MkdirAll(path.Dir(filename), 0700); err != nil {
+	if err = os.MkdirAll(path.Dir(filename), 0o700); err != nil {
 		return nil, err
 	}
 	p.lock.RLock()
@@ -142,7 +142,7 @@ func (p *FileProvider) Read(sid string) (_ RawStore, err error) {
 		ok = (modTime + p.maxlifetime) >= time.Now().Unix()
 	}
 	if ok {
-		f, err = os.OpenFile(filename, os.O_RDONLY, 0600)
+		f, err = os.OpenFile(filename, os.O_RDONLY, 0o600)
 	} else {
 		f, err = os.Create(filename)
 	}
@@ -156,7 +156,7 @@ func (p *FileProvider) Read(sid string) (_ RawStore, err error) {
 	}
 
 	var kv map[interface{}]interface{}
-	data, err := ioutil.ReadAll(f)
+	data, err := io.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
@@ -200,15 +200,15 @@ func (p *FileProvider) regenerate(oldsid, sid string) (err error) {
 		if err != nil {
 			return err
 		}
-		if err = os.MkdirAll(path.Dir(oldname), 0700); err != nil {
+		if err = os.MkdirAll(path.Dir(oldname), 0o700); err != nil {
 			return err
 		}
-		if err = ioutil.WriteFile(oldname, data, 0600); err != nil {
+		if err = os.WriteFile(oldname, data, 0o600); err != nil {
 			return err
 		}
 	}
 
-	if err = os.MkdirAll(path.Dir(filename), 0700); err != nil {
+	if err = os.MkdirAll(path.Dir(filename), 0o700); err != nil {
 		return err
 	}
 	if err = os.Rename(oldname, filename); err != nil {

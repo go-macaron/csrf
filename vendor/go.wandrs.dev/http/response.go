@@ -47,19 +47,19 @@ type ResponseWriter interface {
 
 type response struct {
 	http.ResponseWriter
-	req Request
-	r   *render.Render
-	log logr.Logger
+	req    Request
+	r      *render.Render
+	logger logr.Logger
 }
 
 var _ ResponseWriter = &response{}
 
-func NewResponseWriter(w http.ResponseWriter, req *http.Request, r *render.Render, log logr.Logger) ResponseWriter {
+func NewResponseWriter(w http.ResponseWriter, req *http.Request, r *render.Render, logger logr.Logger) ResponseWriter {
 	return &response{
 		ResponseWriter: w,
 		req:            &request{req: req},
 		r:              r,
-		log:            log,
+		logger:         logger,
 	}
 }
 
@@ -131,13 +131,13 @@ func (w *response) XML(status int, v interface{}) {
 // first content will be considered as title and the
 // second content will be considered as the error
 func (w *response) Error(status int, contents ...interface{}) {
-	var v = http.StatusText(status)
+	v := http.StatusText(status)
 
 	var title string
 	var obj interface{}
 
 	if len(contents) > 1 {
-		title = contents[0].(string)
+		title = fmt.Sprintf("%v", contents[0])
 		obj = contents[1]
 	} else if len(contents) > 0 {
 		obj = contents[0]
@@ -146,12 +146,12 @@ func (w *response) Error(status int, contents ...interface{}) {
 	if err, ok := obj.(error); ok {
 		v = err.Error()
 	} else {
-		v = fmt.Sprintf("%s", obj)
+		v = fmt.Sprintf("%v", obj)
 	}
 
-	if len(title) > 0 && w.log != nil {
+	if len(title) > 0 && w.logger.GetSink() != nil {
 		// log the error with the title
-		w.log.Error(fmt.Errorf(v), title)
+		w.logger.Error(fmt.Errorf(v), title)
 	}
 
 	http.Error(w, v, status)

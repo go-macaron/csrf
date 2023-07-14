@@ -132,10 +132,10 @@ github.com/unrolled/render v1.4.0 h1:p73obhpsXuE3paXOtcuXTBKgBJpLCfmABnsUiO35x+Q
 github.com/unrolled/render v1.4.0/go.mod h1:cK4RSTTVdND5j9EYEc0LAMOvdG11JeiKjyjfyZRvV2w=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.wandrs.dev/http v0.0.2-0.20210708121012-f33f08efe8ee h1:eCKEOShIu0AUIIDtKJomHEoPyGhtJiz+s+rx5T+Ef50=
-go.wandrs.dev/http v0.0.2-0.20210708121012-f33f08efe8ee/go.mod h1:yukEsN4kwCfNBl3l7EmW/GdBlowAEoDaTmwkHc0C9Tk=
-go.wandrs.dev/inject v0.0.1 h1:jm6Ex/PaPUAjvTDBQpWpUZ8lPdyYb3c7WfCR/G1qjio=
-go.wandrs.dev/inject v0.0.1/go.mod h1:ZN2TWSS270vSn0ci86WBgyvXO4WFooiU8Qyvxz28l2k=
+go.wandrs.dev/http v0.0.2-0.20210906061900-da89ae48dd5b h1:OT1WF7OLEemOODyn+Pgf7MPwq1GhwMmt+AqbfqCjkWo=
+go.wandrs.dev/http v0.0.2-0.20210906061900-da89ae48dd5b/go.mod h1:yukEsN4kwCfNBl3l7EmW/GdBlowAEoDaTmwkHc0C9Tk=
+go.wandrs.dev/inject v0.0.2-0.20210830111053-4cf53490454a h1:2rNrwd8Fh+QmKNYMZNaw1qIf5rOt2RfDJhiDpacg2lI=
+go.wandrs.dev/inject v0.0.2-0.20210830111053-4cf53490454a/go.mod h1:ZN2TWSS270vSn0ci86WBgyvXO4WFooiU8Qyvxz28l2k=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20190611184440-5c40567a22f8/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=
 golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550/go.mod h1:yigFU9vqHzYiE8UmvKecakEJjdnWj3jj499lnFckfCI=

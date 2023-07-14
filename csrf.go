@@ -24,6 +24,7 @@ import (
 	"go.wandrs.dev/session"
 	r "math/rand"
 	"net/http"
+	"reflect"
 	"time"
 )
 
@@ -214,13 +215,12 @@ func Generate(options ...Options) func(http.Handler) http.Handler {
 			CookieHttpOnly: opt.CookieHttpOnly,
 			ErrorFunc:      opt.ErrorFunc,
 		}
-		injector.MapTo(x, (*CSRF)(nil))
 
 		if opt.Origin && len(ctx.Header().Get("Origin")) > 0 {
 			return nil
 		}
 
-		sess := session.GetSession(ctx.R().Request())
+		sess := session.GetSession(injector)
 		x.ID = "0"
 		uid := sess.Get(opt.SessionKey)
 		if uid != nil {
@@ -252,7 +252,7 @@ func Generate(options ...Options) func(http.Handler) http.Handler {
 		if opt.SetHeader {
 			ctx.Header().Add(opt.Header, x.Token)
 		}
-		injector.Map(&x)
+		injector.Map(x)
 
 		return nil
 	})
@@ -262,6 +262,10 @@ func Generate(options ...Options) func(http.Handler) http.Handler {
 // Additionally, depending on options set, generated tokens will be sent via Header and/or Cookie.
 func Csrfer(options ...Options) func(next http.Handler) http.Handler {
 	return Generate(options...)
+}
+
+func GetCSRF(injector inject.Injector) *csrf {
+	return injector.GetVal(reflect.TypeOf(&csrf{})).Interface().(*csrf)
 }
 
 // Validate should be used as a per route middleware. It attempts to get a token from a "X-CSRFToken"

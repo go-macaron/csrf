@@ -69,7 +69,7 @@ func ErrorToAPIStatus(err error) *metav1.Status {
 		}
 		status.Kind = "Status"
 		status.APIVersion = "v1"
-		//TODO: check for invalid responses
+		// TODO: check for invalid responses
 		return &status
 	default:
 		status := http.StatusInternalServerError
@@ -107,8 +107,8 @@ func (w *response) APIError(err error) int {
 		return code
 	}
 
-	if w.log != nil {
-		w.log.Error(err, string(status.Reason))
+	if w.logger.GetSink() != nil {
+		w.logger.Error(err, string(status.Reason))
 	}
 	w.JSON(code, status)
 	return code
@@ -132,7 +132,8 @@ func NewInternalError(err error, message ...string) *kerr.StatusError {
 				Causes: []metav1.StatusCause{{Message: err.Error()}},
 			},
 			Message: fmt.Sprintf("Internal error occurred: %v", err),
-		}}
+		},
+	}
 }
 
 // NewNotFound returns a new error which indicates that the requested resource was not found.
@@ -161,7 +162,8 @@ func NewAlreadyExists(err error, message ...string) *kerr.StatusError {
 				Causes: []metav1.StatusCause{{Message: err.Error()}},
 			},
 			Message: fmt.Sprintf("Resource already exists: %v", err),
-		}}
+		},
+	}
 }
 
 // NewUnauthorized returns an error indicating the client is not authorized to perform the requested
@@ -177,7 +179,8 @@ func NewUnauthorized(reason string) *kerr.StatusError {
 			Code:    http.StatusUnauthorized,
 			Reason:  metav1.StatusReasonUnauthorized,
 			Message: message,
-		}}
+		},
+	}
 }
 
 // NewForbidden returns an error indicating the requested action was forbidden
@@ -192,7 +195,8 @@ func NewForbidden(reason string) *kerr.StatusError {
 			Code:    http.StatusForbidden,
 			Reason:  metav1.StatusReasonForbidden,
 			Message: message,
-		}}
+		},
+	}
 }
 
 // NewConflict returns an error indicating the item can't be updated as provided.
@@ -206,7 +210,8 @@ func NewConflict(err error, message ...string) *kerr.StatusError {
 				Causes: []metav1.StatusCause{{Message: err.Error()}},
 			},
 			Message: fmt.Sprintf("Operation cannot be fulfilled: %v", err),
-		}}
+		},
+	}
 }
 
 // NewResourceExpired creates an error that indicates that the requested resource content has expired
@@ -217,7 +222,8 @@ func NewResourceExpired(message string) *kerr.StatusError {
 			Code:    http.StatusGone,
 			Reason:  metav1.StatusReasonExpired,
 			Message: message,
-		}}
+		},
+	}
 }
 
 // NewBadRequest creates an error that indicates that the request is invalid and can not be processed.
@@ -231,7 +237,8 @@ func NewBadRequest(err error, message ...string) *kerr.StatusError {
 				Causes: []metav1.StatusCause{{Message: err.Error()}},
 			},
 			Message: fmt.Sprintf("Operation cannot be fulfilled: %v", err),
-		}}
+		},
+	}
 }
 
 // NewMethodNotSupported returns an error indicating the requested action is not supported.
@@ -245,7 +252,8 @@ func NewMethodNotSupported(err error, message ...string) *kerr.StatusError {
 				Causes: []metav1.StatusCause{{Message: err.Error()}},
 			},
 			Message: fmt.Sprintf("Method not supported: %v", err),
-		}}
+		},
+	}
 }
 
 // NewStatusError returns a generic status type error
